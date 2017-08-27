@@ -18,7 +18,8 @@ def log(v):
 	sys.stdout.flush()
 
 MagnetLinkRegex = re.compile(r'magnet:\?xt=urn:[a-z:]*[a-zA-Z0-9]*')
-BotToken = "xoxb-232459419525-NUtBuKPXbqKmgRvpFPZOTJMr"
+BotToken = "xoxb-232459419525-2hvjcSWWoIkp5VAIrczcePmr" # live
+# BotToken = "xoxb-231855900465-5DesyL04W04CX9h412O6DFiD" # dev
 Users = {
 	"U053Z56CE": "escobar"
 }
@@ -66,8 +67,6 @@ class EventHandlers:
 			})
 	@staticmethod
 	def message_file_share(body):
-		log(body)
-		sys.stdout.flush()
 		fileInfo = slackMethod("files.info", {
 			"file": body["file"]["id"]
 		})["file"]
