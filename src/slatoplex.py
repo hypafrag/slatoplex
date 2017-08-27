@@ -18,8 +18,8 @@ def log(v):
 	sys.stdout.flush()
 
 MagnetLinkRegex = re.compile(r'magnet:\?xt=urn:[a-z:]*[a-zA-Z0-9]*')
-BotToken = "xoxb-232459419525-2hvjcSWWoIkp5VAIrczcePmr" # live
-# BotToken = "xoxb-231855900465-5DesyL04W04CX9h412O6DFiD" # dev
+BotToken = "xoxb-232459419525-UnSIFWlaojDExC8JmzeUynpk" # live
+# BotToken = "xoxb-231855900465-JjOqYXfayuVgexkIrpFCWKZ0" # dev
 Users = {
 	"U053Z56CE": "escobar"
 }
