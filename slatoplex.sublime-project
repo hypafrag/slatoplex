@@ -1,0 +1,28 @@
+{
+	"build_systems":
+	[
+		{
+			"name": "python virtualenv",
+			"shell_cmd": ".env/bin/python3 src/slatoplex.py",
+			"working_dir": "$project_path"
+		}
+	],
+	"folders":
+	[
+		{
+			"folder_exclude_patterns":
+			[
+				".env",
+			],
+			"file_exclude_patterns":
+			[
+				"env.sh",
+			],
+			"path": "."
+		}
+	],
+	"settings":
+	{
+		"tab_size": 4
+	}
+}
