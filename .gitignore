@@ -1,2 +1,4 @@
 .env
 *.sublime-workspace
+__pycache__
+src/config.py
