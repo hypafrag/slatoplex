@@ -2,6 +2,7 @@ import http.client
 import bencoder
 import tempfile
 import subprocess
+import threading
 import hashlib
 import base64
 import json
@@ -13,6 +14,15 @@ from logger import log
 
 MagnetLinkRegex = re.compile(r'magnet:\?xt=urn:btih:[0-9a-f]{5,40}(\&[a-zA-Z0-9_\-]+=[a-zA-Z0-9_\%\.\-]+)*')
 TransmissionSessionId = ""
+
+ProgressListeners = []
+DeleteListeners = []
+
+def addProgressListener(listener):
+	ProgressListeners.append(listener)
+
+def addDeleteListener(listener):
+	ProgressListeners.append(listener)
 
 def extractMagnetLink(string):
 	longest_match = ""
@@ -36,7 +46,7 @@ def torrentToMagnetLink(torrent):
 	# b32hash = base64.b32encode(digest)
 	# magnetLink = 'magnet:?xt=urn:btih:' + b32hash.decode("utf-8")
 
-def addTorrent(link, downloadDir):
+def transmissionRPCMethod(name, arguments = {}):
 	global TransmissionSessionId
 	conn = http.client.HTTPConnection(config.host, config.port)
 	auth = base64.b64encode(":".join([config.user, config.password]).encode("ascii")).decode("ascii")
@@ -44,12 +54,8 @@ def addTorrent(link, downloadDir):
 		"POST",
 		"/transmission/rpc",
 		json.dumps({
-			"method": "torrent-add",
-			"arguments": {
-				"paused": False,
-				"filename": link,
-				"download-dir": downloadDir,
-			}
+			"method": name,
+			"arguments": arguments,
 		}), {
 			"Authorization": " ".join(["Basic", auth]),
 			"X-Transmission-Session-Id": TransmissionSessionId
@@ -57,11 +63,81 @@ def addTorrent(link, downloadDir):
 	response = conn.getresponse()
 	if response.status == 409:
 		TransmissionSessionId = response.getheader("X-Transmission-Session-Id")
-		return addTorrent(link, downloadDir)
+		return transmissionRPCMethod(name, arguments)
 	if response.status == 200:
-		body = json.loads(response.read().decode("utf-8"))
-		torrentInfo = body["arguments"]["torrent-added"]
-		# log(torrentInfo["id"])
-		# log(torrentInfo["hashString"])
-		return torrentInfo
+		return json.loads(response.read().decode("utf-8"))
 	return None
+
+TrackingTorrents = {}
+
+def repeat(interval, action):
+	def do():
+		if action():
+			threading.Timer(interval, do).start()
+	do()
+
+def updateTracking():
+	if len(TrackingTorrents) == 0:
+		return False
+	response = transmissionRPCMethod("torrent-get", {
+		"ids": list(TrackingTorrents.keys()),
+		"fields": ["id", "percentDone", "name", "status"],
+	})
+	activeTorrents = {}
+	deletedTorrents = []
+	finishedTorrents = []
+	for torrent in response["arguments"]["torrents"]:
+		tid = torrent["id"]
+		activeTorrents[tid] = torrent
+		if torrent["percentDone"] == 1:
+			finishedTorrents.append(tid)
+	for tid in TrackingTorrents:
+		active = activeTorrents.get(tid)
+		if active is None:
+			deletedTorrents.append(tid)
+			continue
+		tracking = TrackingTorrents[tid]
+		progress = active["percentDone"]
+		name = active["name"]
+		changed = False
+		if tracking["progress"] != progress:
+			tracking["progress"] = progress
+			changed = True
+		if tracking["name"] != name:
+			tracking["name"] = name
+			changed = True
+		if changed:
+			for listener in ProgressListeners:
+				listener(tracking, progress)
+	for tid in finishedTorrents:
+		del TrackingTorrents[tid]
+	if len(finishedTorrents) > 0:
+		transmissionRPCMethod("torrent-remove", {
+			"ids": finishedTorrents
+		})
+	for tid in deletedTorrents:
+		for listener in DeleteListeners:
+			listener(TrackingTorrents[tid])
+		del TrackingTorrents[tid]
+	return True
+
+def addTorrent(link, downloadDir):
+	response = transmissionRPCMethod("torrent-add", {
+		"paused": False,
+		"filename": link,
+		"download-dir": downloadDir,
+	})
+	arguments = response["arguments"]
+	if "torrent-duplicate" in arguments:
+		log("duplicate")
+		return
+	torrentInfo = arguments["torrent-added"]
+	tid = torrentInfo["id"]
+	TrackingTorrents[tid] = {
+		"id": tid,
+		"hash": torrentInfo["hashString"],
+		"progress": 0,
+		"name": link
+	}
+	if len(TrackingTorrents) == 1:
+		repeat(config.pollingInterval, updateTracking)

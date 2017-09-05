@@ -1,7 +1,10 @@
 import html
+import subprocess
+import os
 
 import slack
 import torrent
+import plex
 
 from logger import log
 
@@ -33,5 +36,13 @@ class EventHandlers:
 	def file_shared(body):
 		pass
 
-torrent.addTorrent("magnet:?xt=urn:btih:B9BDA77FF0A976DAC19A179ECD2512E291C8E6B8", "/home/hypafrag/slatoplex/escobar")
+def torrentProgress(torrent, progress):
+	log(torrent)
+	if torrent["progress"] == 1:
+		plex.refreshLibrary()
+		log("scanning")
+
+torrent.addProgressListener(torrentProgress)
+
+# torrent.addTorrent("magnet:?xt=urn:btih:B9BDA77FF0A976DAC19A179ECD2512E291C8E6B8", "/home/hypafrag/slatoplex/escobar")
 # slack.startEventsListener(EventHandlers)
