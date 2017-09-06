@@ -30,6 +30,7 @@ class EventHandlers:
 			torrent.addTorrent(magnetLink, dir, {
 				"user": user,
 				"channel": channel,
+				"libSection": libSection,
 			})
 
 	@staticmethod
@@ -62,7 +63,7 @@ def torrentProgress(torrent, progress):
 			})
 
 	if torrent["progress"] == 1:
-		plex.refreshLibrary()
+		plex.refreshSection(meta["libSection"]["key"])
 		slack.method("chat.postMessage", {
 			"channel": meta["channel"],
 			"text": " ".join([torrent["name"], "is downloaded. Refreshing your Plex library."])
