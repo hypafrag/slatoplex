@@ -12,7 +12,7 @@ import re
 from config import transmission as config
 from logger import log
 
-MagnetLinkRegex = re.compile(r'magnet:\?xt=urn:btih:[0-9a-f]{5,40}(\&[a-zA-Z0-9_\-]+=[a-zA-Z0-9_\%\.\-]+)*')
+MagnetLinkRegex = re.compile(r'magnet:\?xt=urn:btih:[0-9a-fA-F]{5,40}(\&[a-zA-Z0-9_\-]+=[a-zA-Z0-9_\%\.\-]+)*')
 TransmissionSessionId = ""
 
 ProgressListeners = []
@@ -81,7 +81,7 @@ def updateTracking():
 		return False
 	response = transmissionRPCMethod("torrent-get", {
 		"ids": list(TrackingTorrents.keys()),
-		"fields": ["id", "percentDone", "name", "status"],
+		"fields": ["id", "percentDone", "metadataPercentComplete", "name", "status"],
 	})
 	activeTorrents = {}
 	deletedTorrents = []
@@ -98,8 +98,12 @@ def updateTracking():
 			continue
 		tracking = TrackingTorrents[tid]
 		progress = active["percentDone"]
+		metaProgress = active["metadataPercentComplete"]
 		name = active["name"]
 		changed = False
+		if tracking["metaProgress"] != metaProgress:
+			tracking["metaProgress"] = metaProgress
+			changed = True
 		if tracking["progress"] != progress:
 			tracking["progress"] = progress
 			changed = True
@@ -121,7 +125,7 @@ def updateTracking():
 		del TrackingTorrents[tid]
 	return True
 
-def addTorrent(link, downloadDir):
+def addTorrent(link, downloadDir, meta = {}):
 	response = transmissionRPCMethod("torrent-add", {
 		"paused": False,
 		"filename": link,
@@ -136,8 +140,10 @@ def addTorrent(link, downloadDir):
 	TrackingTorrents[tid] = {
 		"id": tid,
 		"hash": torrentInfo["hashString"],
+		"metaProgress": 0,
 		"progress": 0,
-		"name": link
+		"name": link,
+		"meta": meta,
 	}
 	if len(TrackingTorrents) == 1:
 		repeat(config.pollingInterval, updateTracking)
